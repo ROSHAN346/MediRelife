@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException , Header
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from database import SessionLocal, engine
@@ -6,9 +6,29 @@ import models
 from pydantic import BaseModel
 from datetime import date
 from fastapi.middleware.cors import CORSMiddleware
+# import jwt
+# from jwt import ExpiredSignatureError, InvalidTokenError
+from datetime import datetime, timedelta
+
+SECRET_KEY = "supersecretkey"  # 🔥 move to .env later
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
+
+
+
 
 import os, json
 # from openai import OpenAI
+
+
+# ------------------------
+# Hashing Password
+# ------------------------
+import hashlib
+
+def hash_password(password: str):
+    return hashlib.sha256(password.encode()).hexdigest()
 
 # ------------------------
 # APP INIT
@@ -173,6 +193,22 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         "user_id": new_user.id
 }
 
+# ------------------------
+# AUTH FUNCTION (ADD HERE ✅)
+# ------------------------
+
+def get_current_user(authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing token")
+
+    try:
+        token = authorization.split(" ")[1]
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
 
 @app.post("/insert-full")
 def insert_full(data: FullMedicineCreate, db: Session = Depends(get_db)):
@@ -231,6 +267,90 @@ def insert_full(data: FullMedicineCreate, db: Session = Depends(get_db)):
         "medicine_id": med.id,
         "message": "Medicine added successfully"
     }
+
+
+# ------------------------
+# Create Token
+# ------------------------
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+# ------------------------
+# Signup API
+# ------------------------
+
+@app.post("/signup")
+def signup(user: UserCreate, db: Session = Depends(get_db)):
+
+    # 🔥 Check if email already exists
+    existing = db.query(models.User).filter(
+        models.User.email == user.email
+    ).first()
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+
+    new_user = models.User(
+        name=user.name,
+        email=user.email,
+        password = user.password
+        # password=hash_password(user.password) $ if want hashing just use that 
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    # token = create_access_token({
+    #     "user_id": new_user.id,
+    #     "email": new_user.email
+    # })
+
+    # console.log(new_user.id)
+
+    return {
+         "user_id": new_user.id,
+        "message": "User created"
+    }
+
+# ------------------------
+# Login API
+# ------------------------
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+@app.post("/login")
+def login(user: LoginRequest, db: Session = Depends(get_db)):
+
+    existing = db.query(models.User).filter(
+        models.User.email == user.email,
+        models.User.password == user.password
+    ).first()
+
+    if not existing:
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect email or password"
+        )
+
+    return {
+        "access_token": existing.id,   # ✅ correct
+        "message": "Login successful"
+    }
+    
+
+
 
 # ------------------------
 # SEARCH API

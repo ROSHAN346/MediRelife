@@ -100,14 +100,14 @@ export default function ScanPage() {
             ...form,
             stock_qty: Number(form.stock_qty),
             price: Number(form.price),
-            user_id: 1,
+            user_id: localStorage.getItem("token"), // 🔥 REQUIRED
         });
 
         await API.post("/insert-full", {
             ...form,
             stock_qty: Number(form.stock_qty),
             price: Number(form.price),
-            user_id: 1, // 🔥 REQUIRED
+            user_id: localStorage.getItem("token"), // 🔥 REQUIRED
         });
         alert("✅ Added");
 

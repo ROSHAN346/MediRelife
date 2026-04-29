@@ -1,7 +1,11 @@
 import Image from "next/image";
+import Navigate from "../components/NavigationBar"
 
 export default function Home() {
   return (
-   <div>Thats landing page </div>
+    
+   <div>
+    <Navigate/>
+     </div>
   );
 }
