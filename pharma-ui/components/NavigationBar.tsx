@@ -26,10 +26,16 @@ const Navbar = () => {
 
       <div style={styles.right}>
         <Link href="/" style={styles.link}>Home</Link>
+        {/* <Link href="/" style={styles.link}>Dashboard</Link> */}
 
         <Link href="/search" style={styles.link}>Search</Link>
 
         {/* 🔐 Only show Inventory if logged in */}
+        {isLoggedIn && (
+          <Link href="/dashboard" style={styles.link}>
+            DashBoard
+          </Link>
+        )}
         {isLoggedIn && (
           <Link href="/inventory" style={styles.link}>
             Inventory

@@ -11,7 +11,7 @@ export default function ScanPage() {
     const [form, setForm] = useState({
         brand_name: "",
         generic_name: "",
-        dosage_form: "Tablet",
+        dosage_form: "",
         manufacturer: "",
         stock_qty: "",
         expiry_date: "",
