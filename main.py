@@ -1,3 +1,4 @@
+from LLM.extraction import extract_medicine_data
 from fastapi import FastAPI, Depends, HTTPException , Header
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -44,6 +45,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # ------------------------
 # DB SETUP
 # ------------------------
@@ -67,8 +69,6 @@ def get_db():
 # SCHEMAS
 # ------------------------
 
-class OCRRequest(BaseModel):
-    text: str
 
 class FullMedicineCreate(BaseModel):
     brand_name: str
@@ -93,62 +93,20 @@ def is_valid_medicine(name: str):
 # OCR → LLM EXTRACTION
 # ------------------------
 
+class OCRRequest(BaseModel):
+    text: str
 @app.post("/extract-medicine")
 def extract_medicine(req: OCRRequest):
 
     text = req.text.strip()
 
-    # Step 1: basic validation
     if not text or len(text) < 5:
-        return {"invalid": True}
+        return {
+            "success": False,
+            "invalid": True
+        }
 
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            temperature=0,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Extract medicine info strictly as JSON."
-                },
-                {
-                    "role": "user",
-                    "content": f"""
-Extract medicine details from this OCR text.
-
-Return ONLY JSON:
-{{
-  "brand_name": "",
-  "generic_name": "",
-  "dosage_form": "",
-  "manufacturer": ""
-}}
-
-If not a medicine:
-{{"invalid": true}}
-
-OCR TEXT:
-{text}
-"""
-                }
-            ]
-        )
-
-        output = response.choices[0].message.content.strip()
-
-        try:
-            data = json.loads(output)
-        except:
-            return {"invalid": True}
-
-        if data.get("invalid") or not data.get("brand_name"):
-            return {"invalid": True}
-
-        return {"success": True, "data": data}
-
-    except Exception as e:
-        print("LLM ERROR:", e)
-        return {"invalid": True}
+    return extract_medicine_data(text)
 
 # ------------------------
 # FINAL SUBMIT API

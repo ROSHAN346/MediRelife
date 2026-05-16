@@ -30,64 +30,63 @@ export default function ScanPage() {
 
     // ---------------- OCR ----------------
     const handleOCR = async (e) => {
-        console.log("📸 OCR triggered");
+    console.log("📸 OCR triggered");
 
-        const file = e.target.files[0];
+    const file = e.target.files[0];
 
-        if (!file) {
-            console.log("❌ No file selected");
+    if (!file) {
+        console.log("❌ No file selected");
+        return;
+    }
+
+    console.log("✅ File:", file.name, file.type, file.size);
+
+    try {
+        const result = await Tesseract.recognize(file, "eng", {
+            logger: (m) => console.log("OCR:", m),
+        });
+
+        const text = result.data.text;
+
+        console.log("📊 Confidence:", result.data.confidence);
+        console.log("📄 RAW TEXT:", JSON.stringify(text));
+
+        if (!text || text.trim() === "") {
+            alert("❌ No text detected. Try a clearer image.");
             return;
         }
 
-        console.log("✅ File:", file.name, file.type, file.size);
+        // Send OCR text to FastAPI + LangChain
+        const response = await fetch("http://localhost:8000/extract-medicine", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ text })
+        });
 
-        try {
-            const result = await Tesseract.recognize(file, "eng", {
-                logger: (m) => console.log("OCR:", m),
-            });
+        const data = await response.json();
 
-            const text = result.data.text;
+        console.log("LLM RESPONSE STATUS:", response.status);
+        console.log("LLM RESPONSE BODY:", data);
 
-            console.log("📊 Confidence:", result.data.confidence);
-            console.log("📄 RAW TEXT:", JSON.stringify(text));
+        // if (!data.success || data.invalid) {
+        //     alert("❌ Could not extract medicine details");
+        //     return;
+        // }
 
-            if (!text || text.trim() === "") {
-                alert("❌ No text detected. Try a clearer image.");
-                return;
-            }
+        setForm((prev) => ({
+            ...prev,
+            ...data.data
+        }));
 
-            // now here we can use llm so we can generate structured data from unstructured text but for now we will just pick the longest line as brand name
+        setStep("form");
 
-            // Clean & extract best line
-            const lines = text
-                .split("\n")
-                .map((l) => l.trim())
-                .filter((l) => l.length > 3);
-
-            if (lines.length === 0) {
-                alert("❌ No valid text found");
-                return;
-            }
-
-            // pick best candidate (longest line)
-            const best = lines.sort((a, b) => b.length - a.length)[0];
-
-            console.log("🏷 Detected Brand:", best);
-
-            // Fill form + move to next step
-            setForm((prev) => ({
-                ...prev,
-                brand_name: best,
-            }));
-
-            setStep("form");
-
-        } catch (err) {
-            console.error("❌ OCR ERROR:", err);
-            alert("OCR failed. Check console.");
-        }
-    };
-
+    } catch (err) {
+        console.error("❌ OCR ERROR:", err);
+        alert("OCR failed. Check console.");
+    }
+};
     // ---------------- FORM ----------------
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -145,7 +144,7 @@ export default function ScanPage() {
                                 type="file"
                                 accept="image/*"
                                 className="hidden"
-                                onClick={(e) => (e.target.value = null)} 
+                                onClick={(e) => (e.target.value = null)}
                                 onChange={(e) => {
                                     console.log("🔥 FILE CHANGE TRIGGERED");
                                     handleOCR(e);
