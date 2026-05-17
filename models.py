@@ -63,7 +63,7 @@ class Inventory(Base):
     medicine = relationship("Medicine", back_populates="inventory")
 
     user_status = Column(Integer, default=0)
-    des_user = Column(String, default="")
+    des_user = Column(String, default=None , nullable=True)
 
 
 # ------------------------
@@ -87,4 +87,4 @@ class Order(Base):
     medicine = relationship("Medicine", back_populates="orders")
 
     user_status = Column(Integer, default=0)
-    des_user = Column(String, default="")
+    des_user = Column(String, default=None , nullable=True)

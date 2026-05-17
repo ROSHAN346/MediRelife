@@ -214,7 +214,9 @@ def insert_full(data: FullMedicineCreate, db: Session = Depends(get_db)):
         medicine_id=med.id,
         stock_qty=data.stock_qty,
         expiry_date=data.expiry_date,
-        price=data.price
+        price=data.price,
+        user_status=0,
+        des_user= None
     )
 
     db.add(inv)
@@ -306,13 +308,38 @@ def login(user: LoginRequest, db: Session = Depends(get_db)):
         "access_token": existing.id,   # ✅ correct
         "message": "Login successful"
     }
-    
+
+
+# ------------------------
+# User Fetch API
+# ------------------------
+@app.get("/user/details")
+def get_user_details(user_id: int, db: Session = Depends(get_db)):
+
+    user = db.query(models.User).filter(
+        models.User.id == user_id
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
+
+    return {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email
+    }
 
 
 
 # ------------------------
 # SEARCH API
 # ------------------------
+
+from datetime import date
+# from sqlalchemy import or_
 
 @app.get("/search")
 def search_medicine(
@@ -322,7 +349,6 @@ def search_medicine(
     user_id: int = 0,
     db: Session = Depends(get_db)
 ):
-
     medicines = (
         db.query(models.Medicine)
         .filter(
@@ -340,34 +366,36 @@ def search_medicine(
     result = []
 
     for med in medicines:
-
         for inv in med.inventory:
 
-            # Skip current user's inventory
-            if inv.user_id == user_id :
+            if inv.user_id == user_id:
                 continue
 
-            # Skip out of stock
             if inv.stock_qty <= 0:
                 continue
 
-            # Skip expired
             days_left = (inv.expiry_date - date.today()).days
 
             if days_left < 0:
                 continue
 
             result.append({
-                "medicine_id": med.id,
-                "brand_name": med.brand_name,
-                "generic_name": med.generic_name,
-                "dosage_form": med.dosage_form,
-                "manufacturer": med.manufacturer,
-                "stock": inv.stock_qty,
-                "expiry_date": inv.expiry_date,
-                "price": inv.price,
-                "user_id": inv.user_id
+                "id": str(inv.id),
+                "brand": med.brand_name or "Unknown",
+                "generic": med.generic_name or "N/A",
+                "batchNo": f"#B{inv.id}",
+                "vendorScore": 0.90,
+                "vendorName": med.manufacturer or "MediRelife Vendor",
+                "expiry": str(inv.expiry_date),
+                "daysLeft": days_left,
+                "qty": inv.stock_qty,
+                "unit": med.dosage_form or "Strip",
+                "mrp": float(inv.price or 0),
+                "askPrice": float(inv.price or 0),
+                "distance": 1.0
             })
+
+            print(f"Found medicine: {med.brand_name} with inventory {inv.stock_qty} expiring on {inv.expiry_date}")
 
     return result
 

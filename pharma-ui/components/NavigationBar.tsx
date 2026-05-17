@@ -5,9 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const NAV_LINKS = [
-  { href: "/search",    label: "Search",    auth: false },
-  { href: "/inventory", label: "Inventory", auth: true  },
+  // { href: "/search",    label: "Search",    auth: false },
+  { href: "/marketplace", label: "MarketPlace", auth: true  },
   { href: "/dashboard", label: "Dashboard", auth: true  },
+  { href: "/inventory", label: "Inventory", auth: true  },
+
 ];
 
 export default function Navbar() {

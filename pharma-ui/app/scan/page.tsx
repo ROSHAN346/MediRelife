@@ -75,6 +75,8 @@ const normalizeOcrData = (data: any) => ({
   stock_qty:    data?.stock_qty !== undefined ? String(data.stock_qty) : "",
   expiry_date:  normalizeExpiryDate(data?.expiry_date),
   price:        data?.price !== undefined ? String(data.price) : "",
+  user_status:  0,
+  des_user:  null
 });
 
 export default function ScanPage() {
@@ -85,7 +87,7 @@ export default function ScanPage() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [form, setForm] = useState({
     brand_name: "", generic_name: "", dosage_form: "",
-    manufacturer: "", stock_qty: "", expiry_date: "", price: "",
+    manufacturer: "", stock_qty: "", expiry_date: "", price: "", user_status: 0, des_user: null
   });
 
   const handleQR = async (arg1: any, arg2?: any) => {
