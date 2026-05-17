@@ -347,3 +347,30 @@ def search_medicine(query: str, db: Session = Depends(get_db)):
             })
 
     return result
+
+
+# ------------------------
+# Inventory Update API
+# ------------------------
+@app.get("/my-inventory/{user_id}")
+def get_my_inventory(user_id: int, db: Session = Depends(get_db)):
+
+    inventory = db.query(models.Inventory).filter(
+        models.Inventory.user_id == user_id
+    ).all()
+
+    result = []
+
+    for inv in inventory:
+
+        result.append({
+            "inventory_id": inv.id,
+            "medicine_id": inv.medicine.id,
+            "brand_name": inv.medicine.brand_name,
+            "generic_name": inv.medicine.generic_name,
+            "stock_qty": inv.stock_qty,
+            "price": inv.price,
+            "expiry_date": inv.expiry_date
+        })
+
+    return result

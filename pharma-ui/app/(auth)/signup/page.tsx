@@ -1,107 +1,213 @@
 "use client";
 
 import { useState } from "react";
-import axios from "axios";
+import Link from "next/link";
+import API from "../../../lib/api";
 import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
   const router = useRouter();
 
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-  });
-
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const signup = async () => {
-    // 🔍 Basic validation
     if (!form.name || !form.email || !form.password) {
-      alert("All fields are required");
+      setError("All fields are required.");
       return;
     }
-
     setLoading(true);
+    setError("");
 
     try {
-      const res = await axios.post(
-        "http://localhost:8000/signup",
-        form
-      );
-
+      const res   = await API.post("/signup", form);
       const token = res.data.user_id;
-
-      // 🔐 Store JWT
-      localStorage.setItem("token", token);
-
-      alert("✅ Signup successful");
-
-      // 🚀 Redirect to home/dashboard
+      localStorage.setItem("token", String(token));
+      localStorage.setItem("pharmacy_name", form.name);
       router.push("/dashboard");
-
     } catch (err: any) {
-      console.error(err);
-      alert("❌ " + (err.response?.data?.detail || "Signup failed"));
+      setError(err.response?.data?.detail || "Signup failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-6 rounded-2xl shadow-lg w-80">
+    <div
+      style={{
+        minHeight:           "100vh",
+        display:             "grid",
+        gridTemplateColumns: "1fr 1fr",
+        background:          "var(--clr-bg)",
+      }}
+    >
+      {/* ── Left decorative panel ── */}
+      <div
+        style={{
+          background:     "var(--clr-primary)",
+          display:        "flex",
+          flexDirection:  "column",
+          justifyContent: "center",
+          padding:        "60px 56px",
+          position:       "relative",
+          overflow:       "hidden",
+        }}
+        className="auth-panel"
+      >
+        <div style={{
+          position: "absolute", width: "400px", height: "400px",
+          borderRadius: "50%", background: "rgba(255,255,255,0.04)",
+          top: "-80px", right: "-80px",
+        }} />
+        <div style={{
+          position: "absolute", width: "260px", height: "260px",
+          borderRadius: "50%", background: "rgba(255,255,255,0.04)",
+          bottom: "60px", left: "-60px",
+        }} />
 
-        <h2 className="text-2xl font-bold text-center mb-4">
-          📝 Signup
-        </h2>
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "10px", marginBottom: "48px" }}>
+            <span style={{
+              width: "36px", height: "36px", borderRadius: "var(--r-md)",
+              background: "rgba(255,255,255,0.15)", display: "flex",
+              alignItems: "center", justifyContent: "center",
+              fontSize: "16px", fontWeight: 700, color: "#fff",
+            }}>M</span>
+            <span style={{ fontSize: "var(--fs-body-lg)", fontWeight: 700, color: "#fff", letterSpacing: "-0.02em" }}>
+              MediRelife
+            </span>
+          </div>
 
-        <input
-          name="name"
-          placeholder="Full Name"
-          onChange={handleChange}
-          className="w-full border p-2 mb-3 rounded"
-        />
+          <h1 style={{
+            fontSize: "32px", fontWeight: 700, color: "#fff",
+            lineHeight: 1.2, letterSpacing: "-0.02em", marginBottom: "16px",
+          }}>
+            Join thousands of<br />pharmacies today.
+          </h1>
+          <p style={{ fontSize: "var(--fs-body-md)", color: "rgba(255,255,255,0.65)", lineHeight: 1.6, maxWidth: "340px" }}>
+            Create a free account and start managing your medicine inventory with OCR-powered scanning.
+          </p>
 
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          onChange={handleChange}
-          className="w-full border p-2 mb-3 rounded"
-        />
-
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          onChange={handleChange}
-          className="w-full border p-2 mb-4 rounded"
-        />
-
-        <button
-          onClick={signup}
-          disabled={loading}
-          className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600"
-        >
-          {loading ? "Creating..." : "Signup"}
-        </button>
-
-        <p className="text-sm text-center mt-3">
-          Already have an account?{" "}
-          <span
-            onClick={() => router.push("/signin")}
-            className="text-blue-500 cursor-pointer"
-          >
-            Login
-          </span>
-        </p>
-
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "40px" }}>
+            {["Free to start", "No credit card", "OCR included", "Instant setup"].map(f => (
+              <span key={f} style={{
+                background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)",
+                borderRadius: "var(--r-full)", padding: "4px 12px",
+                fontSize: "var(--fs-body-sm)", border: "1px solid rgba(255,255,255,0.15)",
+              }}>{f}</span>
+            ))}
+          </div>
+        </div>
       </div>
+
+      {/* ── Right form panel ── */}
+      <div
+        style={{
+          display:        "flex",
+          flexDirection:  "column",
+          justifyContent: "center",
+          alignItems:     "center",
+          padding:        "60px 48px",
+        }}
+      >
+        <div style={{ width: "100%", maxWidth: "380px" }} className="fade-in">
+          <h2 style={{
+            fontSize: "var(--fs-display)", fontWeight: 700,
+            color: "var(--clr-on-surface)", marginBottom: "8px",
+            letterSpacing: "-0.02em",
+          }}>
+            Create account
+          </h2>
+          <p style={{ fontSize: "var(--fs-body-md)", color: "var(--clr-on-surface-variant)", marginBottom: "32px" }}>
+            Set up your pharmacy in under a minute
+          </p>
+
+          {error && (
+            <div style={{
+              background: "var(--clr-error-container)", color: "var(--clr-error)",
+              borderRadius: "var(--r-md)", padding: "10px 14px",
+              fontSize: "var(--fs-body-sm)", marginBottom: "20px",
+              border: "1px solid rgba(186,26,26,0.2)",
+            }}>
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div>
+              <label style={{ display: "block", fontSize: "var(--fs-body-sm)", fontWeight: 500, color: "var(--clr-on-surface)", marginBottom: "6px" }}>
+                Pharmacy / Full Name
+              </label>
+              <input
+                id="signup-name"
+                name="name"
+                placeholder="City Pharma Store"
+                onChange={handleChange}
+                className="input-field"
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "var(--fs-body-sm)", fontWeight: 500, color: "var(--clr-on-surface)", marginBottom: "6px" }}>
+                Email address
+              </label>
+              <input
+                id="signup-email"
+                name="email"
+                type="email"
+                placeholder="you@pharmacy.com"
+                onChange={handleChange}
+                className="input-field"
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: "var(--fs-body-sm)", fontWeight: 500, color: "var(--clr-on-surface)", marginBottom: "6px" }}>
+                Password
+              </label>
+              <input
+                id="signup-password"
+                name="password"
+                type="password"
+                placeholder="Create a secure password"
+                onChange={handleChange}
+                className="input-field"
+              />
+            </div>
+
+            <button
+              id="signup-submit-btn"
+              onClick={signup}
+              disabled={loading}
+              className="btn-primary"
+              style={{ width: "100%", padding: "12px", marginTop: "4px", fontSize: "var(--fs-body-md)" }}
+            >
+              {loading ? <><span className="spinner" style={{ width: 16, height: 16 }} /> Creating account…</> : "Create Account"}
+            </button>
+          </div>
+
+          <p style={{ textAlign: "center", fontSize: "var(--fs-body-sm)", color: "var(--clr-on-surface-variant)", marginTop: "24px" }}>
+            Already have an account?{" "}
+            <Link href="/signin" style={{ color: "var(--clr-secondary)", fontWeight: 600, textDecoration: "none" }}>
+              Sign in
+            </Link>
+          </p>
+        </div>
+      </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .auth-panel { display: none !important; }
+          div[style*="grid-template-columns"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

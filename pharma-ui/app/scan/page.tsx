@@ -4,257 +4,267 @@ import { useState } from "react";
 import API from "../../lib/api";
 import BarcodeScanner from "react-qr-barcode-scanner";
 import Tesseract from "tesseract.js";
-import { url } from "inspector";
+
+function StepIndicator({ current }: { current: number }) {
+  const steps = ["Choose", "Details", "Submit"];
+  return (
+    <div style={{ display: "flex", alignItems: "center", marginBottom: "28px" }}>
+      {steps.map((label, i) => {
+        const done   = i < current;
+        const active = i === current;
+        return (
+          <div key={label} style={{ display: "flex", alignItems: "center", flex: i < steps.length - 1 ? 1 : "none" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+              <div style={{
+                width: "28px", height: "28px", borderRadius: "50%",
+                background: done ? "var(--clr-stable)" : active ? "var(--clr-secondary)" : "var(--clr-surface-container)",
+                color: done || active ? "#fff" : "var(--clr-outline)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "12px", fontWeight: 700,
+                border: active ? "2px solid var(--clr-secondary)" : "2px solid transparent",
+                boxShadow: active ? "0 0 0 3px rgba(0,88,190,0.15)" : "none",
+              }}>
+                {done ? "✓" : i + 1}
+              </div>
+              <span style={{
+                fontSize: "var(--fs-label-sm)",
+                color: active ? "var(--clr-secondary)" : done ? "var(--clr-on-surface-variant)" : "var(--clr-outline)",
+                fontWeight: active ? 600 : 400, whiteSpace: "nowrap",
+              }}>{label}</span>
+            </div>
+            {i < steps.length - 1 && (
+              <div style={{
+                flex: 1, height: "2px",
+                background: done ? "var(--clr-stable)" : "var(--clr-outline-variant)",
+                margin: "0 6px", marginBottom: "20px",
+              }} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function InputRow({ label, name, type = "text", placeholder = "", value, onChange }: any) {
+  return (
+    <div>
+      <label style={{ display: "block", fontSize: "var(--fs-body-sm)", fontWeight: 500, color: "var(--clr-on-surface)", marginBottom: "6px" }}>
+        {label}
+      </label>
+      <input name={name} type={type} placeholder={placeholder} value={value} onChange={onChange} className="input-field" />
+    </div>
+  );
+}
+
+const normalizeExpiryDate = (value?: string) => {
+  if (!value) return "";
+  const dashed = value.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (dashed) return `${dashed[3]}-${dashed[2]}-${dashed[1]}`;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+};
+
+const normalizeOcrData = (data: any) => ({
+  brand_name:   data?.brand_name ?? "",
+  generic_name: data?.generic_name ?? "",
+  dosage_form:  data?.dosage_form ?? "",
+  manufacturer: data?.manufacturer ?? "",
+  stock_qty:    data?.stock_qty !== undefined ? String(data.stock_qty) : "",
+  expiry_date:  normalizeExpiryDate(data?.expiry_date),
+  price:        data?.price !== undefined ? String(data.price) : "",
+});
 
 export default function ScanPage() {
-    const [step, setStep] = useState("choose");
-    const [form, setForm] = useState({
-        brand_name: "",
-        generic_name: "",
-        dosage_form: "",
-        manufacturer: "",
-        stock_qty: "",
-        expiry_date: "",
-        price: ""
-    });
+  const [step, setStep]               = useState(0);
+  const [showQR, setShowQR]           = useState(false);
+  const [ocrLoading, setOcrLoading]   = useState(false);
+  const [terms, setTerms]             = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [form, setForm] = useState({
+    brand_name: "", generic_name: "", dosage_form: "",
+    manufacturer: "", stock_qty: "", expiry_date: "", price: "",
+  });
 
-    const [terms, setTerms] = useState(false);
-
-    // ---------------- QR ----------------
-    const handleQR = (err, result) => {
-        if (result) {
-            console.log("QR:", result.text);
-            // You can call validate here if needed
-        }
-    };
-
-    // ---------------- OCR ----------------
-    const handleOCR = async (e) => {
-    console.log("📸 OCR triggered");
-
-    const file = e.target.files[0];
-
-    if (!file) {
-        console.log("❌ No file selected");
-        return;
-    }
-
-    console.log("✅ File:", file.name, file.type, file.size);
-
+  const handleQR = async (arg1: any, arg2?: any) => {
+    // Support both onUpdate(result) and onUpdate(err, result) shapes
+    const result = arg2 ?? arg1;
+    if (!result) return;
+    const text = result?.text ?? result?.rawValue ?? result?.codeResult?.code ?? result;
+    if (!text) return;
+    // Treat scanned value like OCR text: call extraction endpoint
+    setShowQR(false);
+    setOcrLoading(true);
     try {
-        const result = await Tesseract.recognize(file, "eng", {
-            logger: (m) => console.log("OCR:", m),
-        });
-
-        const text = result.data.text;
-
-        console.log("📊 Confidence:", result.data.confidence);
-        console.log("📄 RAW TEXT:", JSON.stringify(text));
-
-        if (!text || text.trim() === "") {
-            alert("❌ No text detected. Try a clearer image.");
-            return;
-        }
-
-        // Send OCR text to FastAPI + LangChain
-        const response = await fetch("http://localhost:8000/extract-medicine", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ text })
-        });
-
-        const data = await response.json();
-
-        console.log("LLM RESPONSE STATUS:", response.status);
-        console.log("LLM RESPONSE BODY:", data);
-
-        // if (!data.success || data.invalid) {
-        //     alert("❌ Could not extract medicine details");
-        //     return;
-        // }
-
-        setForm((prev) => ({
-            ...prev,
-            ...data.data
-        }));
-
-        setStep("form");
-
+      const res = await API.post("/extract-medicine", { text });
+      const data = res.data;
+      if (data?.invalid) {
+        alert("No valid medicine detected from scan.");
+        return;
+      }
+      if (data?.data) {
+        setForm(prev => ({ ...prev, ...normalizeOcrData(data.data) }));
+        setStep(1);
+      }
     } catch (err) {
-        console.error("❌ OCR ERROR:", err);
-        alert("OCR failed. Check console.");
+      console.error(err);
+      alert("Failed to extract from scan.");
+    } finally {
+      setOcrLoading(false);
     }
-};
-    // ---------------- FORM ----------------
-    const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
-    };
+  };
 
-    const submit = async () => {
-        if (!terms) return alert("Accept terms");
+  const handleOCR = async (e: any) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setOcrLoading(true);
+    try {
+      const result = await Tesseract.recognize(file, "eng", { logger: (m: any) => console.log("OCR:", m) });
+      const text = result.data.text;
+      if (!text || text.trim() === "") { alert("No text detected."); return; }
+      const res = await API.post("/extract-medicine", { text });
+      const data = res.data;
+      if (data?.invalid) {
+        alert("No valid medicine detected.");
+        return;
+      }
+      if (data?.data) {
+        setForm(prev => ({ ...prev, ...normalizeOcrData(data.data) }));
+        setStep(1);
+      }
+    } catch (err) { console.error(err); alert("OCR failed."); }
+    finally { setOcrLoading(false); }
+  };
 
-        console.log("FINAL PAYLOAD:", {
-            ...form,
-            stock_qty: Number(form.stock_qty),
-            price: Number(form.price),
-            user_id: localStorage.getItem("token"), // 🔥 REQUIRED
-        });
+  const handleChange = (e: any) => setForm({ ...form, [e.target.name]: e.target.value });
 
-        await API.post("/insert-full", {
-            ...form,
-            stock_qty: Number(form.stock_qty),
-            price: Number(form.price),
-            user_id: localStorage.getItem("token"), // 🔥 REQUIRED
-        });
-        alert("✅ Added");
+  const submit = async () => {
+    if (!terms) return alert("Accept the terms first.");
+    setSubmitLoading(true);
+    try {
+      const userId = localStorage.getItem("token");
+      if (!userId) {
+        alert("Please sign in first.");
+        window.location.href = "/signin";
+        return;
+      }
+      await API.post("/insert-full", {
+        ...form, stock_qty: Number(form.stock_qty), price: Number(form.price),
+        user_id: Number(userId),
+      });
+      window.location.href = "/dashboard";
+    } catch (err) { console.error(err); alert("Failed to add."); }
+    finally { setSubmitLoading(false); }
+  };
 
-        window.location.href = "/dashboard";
-        setStep("choose");
-    };
-
-    return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
-
-            <div className="bg-white shadow-xl rounded-2xl p-6 w-full max-w-md">
-
-                <h2 className="text-2xl font-bold mb-4 text-center">
-                    📱 Add Medicine
-                </h2>
-
-                {/* STEP 1 */}
-                {step === "choose" && (
-                    <div className="space-y-4">
-
-                        <button
-                            onClick={() => setStep("qr")}
-                            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600"
-                        >
-                            📷 Scan QR / Barcode
-                        </button>
-
-                        {/* ✅ FIXED FILE INPUT */}
-                        <label className="block cursor-pointer border p-3 rounded-lg text-center">
-                            <span className="text-sm text-gray-500">
-                                Upload image for OCR
-                            </span>
-
-                            <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onClick={(e) => (e.target.value = null)}
-                                onChange={(e) => {
-                                    console.log("🔥 FILE CHANGE TRIGGERED");
-                                    handleOCR(e);
-                                }}
-                            />
-                        </label>
-
-                    </div>
-                )}
-
-                {/* STEP 2 */}
-                {step === "qr" && (
-                    <div className="text-center">
-                        <BarcodeScanner
-                            width={300}
-                            height={300}
-                            onUpdate={handleQR}
-                        />
-
-                        <button
-                            onClick={() => setStep("choose")}
-                            className="mt-4 text-blue-500"
-                        >
-                            ← Back
-                        </button>
-                    </div>
-                )}
-
-                {/* STEP 3 */}
-                {step === "form" && (
-                    <div className="space-y-3">
-
-                        <h3 className="font-semibold">🧾 Medicine</h3>
-
-                        <input
-                            name="brand_name"
-                            value={form.brand_name}
-                            onChange={handleChange}
-                            className="w-full border p-2 rounded"
-                            placeholder="Brand"
-                        />
-
-                        <input
-                            name="generic_name"
-                            value={form.generic_name}
-                            onChange={handleChange}
-                            className="w-full border p-2 rounded"
-                            placeholder="Generic"
-                        />
-
-                        <input
-                            name="dosage_form"
-                            value={form.dosage_form}
-                            onChange={handleChange}
-                            className="w-full border p-2 rounded"
-                        />
-
-                        <input
-                            name="manufacturer"
-                            value={form.manufacturer}
-                            onChange={handleChange}
-                            className="w-full border p-2 rounded"
-                            placeholder="Manufacturer"
-                        />
-
-                        <h3 className="font-semibold mt-2">📦 Inventory</h3>
-
-
-
-                        <input
-                            name="stock_qty"
-                            type="number"
-                            placeholder="Stock"
-                            onChange={handleChange}
-                            className="w-full border p-2 rounded"
-                        />
-
-                        <input
-                            name="expiry_date"
-                            type="date"
-                            onChange={handleChange}
-                            className="w-full border p-2 rounded"
-                        />
-
-                        <input
-                            name="price"
-                            type="number"
-                            placeholder="Price"
-                            onChange={handleChange}
-                            className="w-full border p-2 rounded"
-                        />
-
-                        <label className="flex items-center space-x-2 text-sm">
-                            <input
-                                type="checkbox"
-                                onChange={(e) => setTerms(e.target.checked)}
-                            />
-                            <span>Accept Terms</span>
-                        </label>
-
-                        <button
-                            onClick={submit}
-                            className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600"
-                        >
-                            Submit
-                        </button>
-                    </div>
-                )}
-
-            </div>
+  return (
+    <div style={{ minHeight: "calc(100vh - 56px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px var(--sp-container)", background: "var(--clr-bg)" }}>
+      <div className="card fade-in" style={{ width: "100%", maxWidth: "900px" }}>
+        <div style={{ marginBottom: "24px" }}>
+          <h1 style={{ fontSize: "var(--fs-headline)", fontWeight: 700, color: "var(--clr-on-surface)", margin: 0 }}>Add Medicine</h1>
+          <p style={{ fontSize: "var(--fs-body-sm)", color: "var(--clr-on-surface-variant)", marginTop: "4px" }}>
+            Scan a label or fill in details manually
+          </p>
         </div>
-    );
+
+        <StepIndicator current={showQR ? 0 : step} />
+
+        {/* STEP 0: Choose */}
+        {step === 0 && !showQR && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }} className="fade-in">
+            <label htmlFor="ocr-upload" style={{
+              display: "flex", alignItems: "center", gap: "16px", padding: "18px 20px",
+              border: "1px dashed var(--clr-outline-variant)", borderRadius: "var(--r-lg)",
+              cursor: ocrLoading ? "not-allowed" : "pointer", background: "var(--clr-surface-container-low)",
+              transition: "border-color 0.15s, background 0.15s", opacity: ocrLoading ? 0.7 : 1,
+            }}>
+              <div style={{ width: "44px", height: "44px", borderRadius: "var(--r-lg)", background: "var(--clr-info-bg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", flexShrink: 0 }}>
+                {ocrLoading ? <span className="spinner" /> : "📸"}
+              </div>
+              <div>
+                <div style={{ fontSize: "var(--fs-body-md)", fontWeight: 600, color: "var(--clr-on-surface)" }}>{ocrLoading ? "Extracting text…" : "Upload Label Image"}</div>
+                <div style={{ fontSize: "var(--fs-body-sm)", color: "var(--clr-on-surface-variant)", marginTop: "2px" }}>OCR + AI extracts medicine details automatically</div>
+              </div>
+              <input id="ocr-upload" type="file" accept="image/*" style={{ display: "none" }}
+                onClick={(e: any) => (e.target.value = null)}
+                onChange={e => { console.log("FILE CHANGE TRIGGERED"); handleOCR(e); }}
+                disabled={ocrLoading} />
+            </label>
+
+            <button id="scan-qr-btn" onClick={() => setShowQR(true)} style={{
+              display: "flex", alignItems: "center", gap: "16px", padding: "18px 20px",
+              border: "1px solid var(--clr-outline-variant)", borderRadius: "var(--r-lg)",
+              cursor: "pointer", background: "var(--clr-surface-container-low)", textAlign: "left",
+            }}>
+              <div style={{ width: "44px", height: "44px", borderRadius: "var(--r-lg)", background: "var(--clr-approaching-bg)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", flexShrink: 0 }}>📷</div>
+              <div>
+                <div style={{ fontSize: "var(--fs-body-md)", fontWeight: 600, color: "var(--clr-on-surface)" }}>Scan QR / Barcode</div>
+                <div style={{ fontSize: "var(--fs-body-sm)", color: "var(--clr-on-surface-variant)", marginTop: "2px" }}>Use your camera to scan a product barcode</div>
+              </div>
+            </button>
+
+            <div style={{ textAlign: "center", marginTop: "4px" }}>
+              <button id="scan-manual-btn" onClick={() => setStep(1)} style={{ background: "transparent", border: "none", color: "var(--clr-secondary)", cursor: "pointer", fontSize: "var(--fs-body-sm)", fontWeight: 500 }}>
+                Enter details manually instead →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* QR Scanner */}
+        {showQR && (
+          <div style={{ textAlign: "center" }} className="fade-in">
+            <div style={{ border: "1px solid var(--clr-outline-variant)", borderRadius: "var(--r-lg)", overflow: "hidden", marginBottom: "16px", display: "inline-block" }}>
+              <BarcodeScanner width={340} height={280} onUpdate={handleQR} />
+            </div>
+            <button onClick={() => setShowQR(false)} className="btn-ghost" style={{ width: "100%" }}>← Back to options</button>
+          </div>
+        )}
+
+        {/* STEP 1: Form */}
+        {step === 1 && !showQR && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }} className="fade-in">
+            <div>
+              <p className="section-label">Medicine Details</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <InputRow label="Brand Name *"   name="brand_name"   value={form.brand_name}   onChange={handleChange} placeholder="e.g. Crocin 500mg" />
+                <InputRow label="Generic Name *" name="generic_name" value={form.generic_name} onChange={handleChange} placeholder="e.g. Paracetamol" />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
+                  <InputRow label="Dosage Form"  name="dosage_form"  value={form.dosage_form}  onChange={handleChange} placeholder="Tablet" />
+                  <InputRow label="Manufacturer" name="manufacturer" value={form.manufacturer} onChange={handleChange} placeholder="e.g. GSK" />
+                </div>
+              </div>
+            </div>
+            <div style={{ borderTop: "1px solid var(--clr-outline-variant)", paddingTop: "16px" }}>
+              <p className="section-label">Inventory Details</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <InputRow label="Stock Quantity *" name="stock_qty"   type="number" value={form.stock_qty}   onChange={handleChange} placeholder="0" />
+                <InputRow label="Price (₹) *"      name="price"       type="number" value={form.price}       onChange={handleChange} placeholder="0.00" />
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <InputRow label="Expiry Date *"  name="expiry_date" type="date"   value={form.expiry_date} onChange={handleChange} />
+                </div>
+              </div>
+            </div>
+            <div style={{ borderTop: "1px solid var(--clr-outline-variant)", paddingTop: "16px", display: "flex", flexDirection: "column", gap: "14px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+                <input type="checkbox" checked={terms} onChange={e => setTerms(e.target.checked)} style={{ width: "16px", height: "16px", accentColor: "var(--clr-secondary)" }} />
+                <span style={{ fontSize: "var(--fs-body-sm)", color: "var(--clr-on-surface-variant)" }}>
+                  I confirm this information is accurate and accept the terms
+                </span>
+              </label>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button onClick={() => setStep(0)} className="btn-ghost" style={{ flex: 1 }}>← Back</button>
+                <button id="scan-submit-btn" onClick={submit} disabled={submitLoading} className="btn-primary" style={{ flex: 2 }}>
+                  {submitLoading ? <><span className="spinner" style={{ width: 16, height: 16 }} /> Saving…</> : "Add to Inventory"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
+

@@ -2,84 +2,211 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
-const Dashboard = () => {
-  const router = useRouter();
+const ACTION_CARDS = [
+  {
+    id:          "dashboard-search-card",
+    href:        "/search",
+    icon:        "🔍",
+    title:       "Search Medicines",
+    description: "Look up medicines across the entire inventory database",
+    cta:         "Search now",
+    accent:      "var(--clr-info-bg)",
+    accentText:  "var(--clr-info)",
+  },
+  {
+    id:          "dashboard-inventory-card",
+    href:        "/inventory",
+    icon:        "📦",
+    title:       "My Inventory",
+    description: "View and manage your pharmacy's stock and expiry dates",
+    cta:         "Open inventory",
+    accent:      "var(--clr-stable-bg)",
+    accentText:  "var(--clr-stable)",
+  },
+  {
+    id:          "dashboard-scan-card",
+    href:        "/scan",
+    icon:        "➕",
+    title:       "Add Medicine",
+    description: "Scan a label with OCR or enter medicine details manually",
+    cta:         "Add now",
+    accent:      "var(--clr-approaching-bg)",
+    accentText:  "var(--clr-approaching)",
+  },
+];
+
+export default function Dashboard() {
+  const router  = useRouter();
   const [loading, setLoading] = useState(true);
+  const [name,    setName]    = useState("Pharmacy");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-
     if (!token) {
-      router.push("/login"); // 🚫 redirect if not logged in
+      router.push("/signin");
     } else {
+      const stored = localStorage.getItem("pharmacy_name");
+      if (stored) setName(stored);
       setLoading(false);
     }
   }, [router]);
 
+  const today = new Date().toLocaleDateString("en-GB", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
+
   if (loading) {
-    return <h2 style={{ padding: "20px" }}>Loading dashboard...</h2>;
+    return (
+      <div style={{ minHeight: "calc(100vh - 56px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span className="spinner" style={{ width: 32, height: 32 }} />
+      </div>
+    );
   }
 
   return (
-    <div style={styles.container}>
-      <h1>📊 Dashboard</h1>
+    <div style={{ minHeight: "calc(100vh - 56px)", width: "100%", maxWidth: "1440px", margin: "0 auto", padding: "36px 48px", boxSizing: "border-box" }}>
 
-      <div style={styles.cardContainer}>
-        <div style={styles.card}>
-          <h3>🔍 Search Medicine</h3>
-          <p>Find medicines in inventory</p>
-          <button onClick={() => router.push("/search")} style={styles.button}>
-            Go
-          </button>
+      {/* ── Page header ── */}
+      <div
+        className="fade-in"
+        style={{
+          display:        "flex",
+          justifyContent: "space-between",
+          alignItems:     "flex-start",
+          flexWrap:       "wrap",
+          gap:            "16px",
+          marginBottom:   "36px",
+        }}
+      >
+        <div>
+          <p className="section-label" style={{ marginBottom: "4px" }}>Dashboard</p>
+          <h1 style={{
+            fontSize: "var(--fs-display)", fontWeight: 700,
+            color: "var(--clr-on-surface)", letterSpacing: "-0.02em",
+            margin: 0,
+          }}>
+            Good day, {name} 👋
+          </h1>
+          <p style={{ fontSize: "var(--fs-body-sm)", color: "var(--clr-on-surface-variant)", marginTop: "4px" }}>
+            {today}
+          </p>
         </div>
 
-        <div style={styles.card}>
-          <h3>🏥 Inventory</h3>
-          <p>Manage your stock & medicines</p>
-          <button onClick={() => router.push("/inventory")} style={styles.button}>
-            Open
-          </button>
-        </div>
+        <Link
+          id="dashboard-add-btn"
+          href="/scan"
+          className="btn-secondary"
+          style={{ alignSelf: "flex-start" }}
+        >
+          + Add Medicine
+        </Link>
+      </div>
 
-        <div style={styles.card}>
-          <h3>➕ Add Medicine</h3>
-          <p>Insert new medicine records</p>
-          <button onClick={() => router.push("/scan")} style={styles.button}>
-            Add
-          </button>
-        </div>
+      {/* ── Quick-stats row (placeholder) ── */}
+      <div
+        className="fade-in"
+        style={{
+          display:             "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap:                 "16px",
+          marginBottom:        "40px",
+        }}
+      >
+        {[
+          { label: "Total Medicines", value: "—", sub: "in your inventory", color: "var(--clr-secondary)" },
+          { label: "Expiring Soon",   value: "—", sub: "within 30 days",    color: "var(--clr-urgent)"    },
+          { label: "Low Stock",       value: "—", sub: "under 10 units",     color: "var(--clr-approaching)" },
+        ].map(stat => (
+          <div
+            key={stat.label}
+            className="card"
+            style={{ display: "flex", flexDirection: "column", gap: "4px" }}
+          >
+            <span style={{ fontSize: "var(--fs-label-md)", color: "var(--clr-on-surface-variant)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              {stat.label}
+            </span>
+            <span style={{ fontSize: "28px", fontWeight: 700, color: stat.color, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+              {stat.value}
+            </span>
+            <span style={{ fontSize: "var(--fs-body-sm)", color: "var(--clr-outline)" }}>
+              {stat.sub}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Action cards ── */}
+      <p className="section-label">Quick Actions</p>
+      <div
+        style={{
+          display:             "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gap:                 "20px",
+        }}
+      >
+        {ACTION_CARDS.map((card, i) => (
+          <div
+            key={card.id}
+            id={card.id}
+            className="card fade-in"
+            style={{
+              display:        "flex",
+              flexDirection:  "column",
+              gap:            "12px",
+              animationDelay: `${i * 60}ms`,
+              transition:     "box-shadow 0.2s ease, transform 0.2s ease",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-elevated)";
+              (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLDivElement).style.boxShadow = "var(--shadow-card)";
+              (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)";
+            }}
+          >
+            <div
+              style={{
+                width:        "44px",
+                height:       "44px",
+                borderRadius: "var(--r-lg)",
+                background:   card.accent,
+                display:      "flex",
+                alignItems:   "center",
+                justifyContent: "center",
+                fontSize:     "22px",
+              }}
+            >
+              {card.icon}
+            </div>
+            <div>
+              <div style={{ fontSize: "var(--fs-headline)", fontWeight: 700, color: "var(--clr-on-surface)", marginBottom: "4px" }}>
+                {card.title}
+              </div>
+              <div style={{ fontSize: "var(--fs-body-sm)", color: "var(--clr-on-surface-variant)", lineHeight: 1.5 }}>
+                {card.description}
+              </div>
+            </div>
+            <Link
+              href={card.href}
+              style={{
+                marginTop:     "auto",
+                display:       "inline-flex",
+                alignItems:    "center",
+                gap:           "6px",
+                fontSize:      "var(--fs-body-sm)",
+                fontWeight:    600,
+                color:         card.accentText,
+                textDecoration: "none",
+              }}
+            >
+              {card.cta} →
+            </Link>
+          </div>
+        ))}
       </div>
     </div>
   );
-};
-
-export default Dashboard;
-
-const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    padding: "30px",
-  },
-  cardContainer: {
-    display: "flex",
-    gap: "20px",
-    marginTop: "20px",
-    flexWrap: "wrap",
-  },
-  card: {
-    width: "250px",
-    padding: "20px",
-    borderRadius: "10px",
-    boxShadow: "0 0 10px rgba(0,0,0,0.1)",
-    background: "white",
-  },
-  button: {
-    marginTop: "10px",
-    padding: "8px 12px",
-    background: "#2563eb",
-    color: "white",
-    border: "none",
-    borderRadius: "5px",
-    cursor: "pointer",
-  },
-};
+}
