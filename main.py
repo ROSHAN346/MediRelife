@@ -438,9 +438,9 @@ def get_shipments(user_id: int, db: Session = Depends(get_db)):
 @app.post("/orders/{user_id}")
 def get_orders(user_id: int, db: Session = Depends(get_db)):
 
-    inventory = db.query(models.Inventory).filter(
-        models.Inventory.user_id == user_id,
-        models.Inventory.user_status == 2
+    inventory = db.query(models.Order).filter(
+        models.Order.user_id == user_id
+        # models.Order.user_status == 2
     ).all()
 
     result = []
@@ -460,3 +460,61 @@ def get_orders(user_id: int, db: Session = Depends(get_db)):
     print(result)
 
     return result
+
+# ------------------------
+# Buyer  API
+# ------------------------
+
+@app.post("/buy/{seller_id}")
+def buy_medicine(
+    seller_id: int,
+    buyer_id: int,
+    medicine_id: int,
+    db: Session = Depends(get_db)
+):
+    
+    print(f"Buyer {buyer_id} wants to buy medicine {medicine_id} from seller {seller_id}")
+    # Find seller inventory
+    inv = db.query(models.Inventory).filter(
+        models.Inventory.user_id == seller_id,
+        models.Inventory.medicine_id == medicine_id,
+        models.Inventory.user_status == 0
+    ).first()
+
+    if not inv:
+        raise HTTPException(
+            status_code=400,
+            detail="Medicine not available"
+        )
+
+    # Prevent self buy
+    if seller_id == buyer_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot buy your own medicine"
+        )
+
+    # Create order
+    order = models.Order(
+        # inventory_id=inv.id,
+        medicine_id=medicine_id,
+        des_user=seller_id,
+        user_id=buyer_id,
+        user_status = 2
+    )
+
+    db.add(order)
+
+    # Update seller inventory
+    inv.user_status = 1
+    inv.des_user = buyer_id
+
+    print(f"Order created for buyer {buyer_id}")
+    db.commit()
+
+    db.refresh(order)
+
+    return {
+        "message": "Order created",
+        "order_id": order.id
+    }

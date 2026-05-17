@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 # ------------------------
-# USER TABLE (PHARMACY)
+# USER TABLE
 # ------------------------
 
 class User(Base):
@@ -14,9 +14,11 @@ class User(Base):
     email = Column(String, unique=True)
     password = Column(String)
 
-    # Relationships
     medicines = relationship("Medicine", back_populates="owner")
     inventory = relationship("Inventory", back_populates="owner")
+
+    # ✅ ADD THIS
+    orders = relationship("Order", back_populates="owner")
 
 
 # ------------------------
@@ -32,10 +34,13 @@ class Medicine(Base):
     dosage_form = Column(String)
     manufacturer = Column(String)
 
-    user_id = Column(Integer, ForeignKey("users.id"))  # 🔥 OWNER
+    user_id = Column(Integer, ForeignKey("users.id"))
 
     owner = relationship("User", back_populates="medicines")
     inventory = relationship("Inventory", back_populates="medicine")
+
+    # ✅ ADD THIS
+    orders = relationship("Order", back_populates="medicine")
 
 
 # ------------------------
@@ -47,7 +52,7 @@ class Inventory(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    user_id = Column(Integer, ForeignKey("users.id"))  # 🔥 OWNER
+    user_id = Column(Integer, ForeignKey("users.id"))
     medicine_id = Column(Integer, ForeignKey("medicine.id"))
 
     stock_qty = Column(Integer)
@@ -56,5 +61,30 @@ class Inventory(Base):
 
     owner = relationship("User", back_populates="inventory")
     medicine = relationship("Medicine", back_populates="inventory")
+
+    user_status = Column(Integer, default=0)
+    des_user = Column(String, default="")
+
+
+# ------------------------
+# ORDER TABLE
+# ------------------------
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"))
+    medicine_id = Column(Integer, ForeignKey("medicine.id"))
+
+    stock_qty = Column(Integer)
+    expiry_date = Column(Date)
+    price = Column(Float)
+
+    # ✅ FIXED
+    owner = relationship("User", back_populates="orders")
+    medicine = relationship("Medicine", back_populates="orders")
+
     user_status = Column(Integer, default=0)
     des_user = Column(String, default="")
