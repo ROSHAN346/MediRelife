@@ -125,6 +125,8 @@ export default function ScanPage() {
       const text = result.data.text;
       if (!text || text.trim() === "") { alert("No text detected."); return; }
       const res = await API.post("/extract-medicine", { text });
+
+      console.log("OCR Extraction response:", res);
       const data = res.data;
       if (data?.invalid) {
         alert("No valid medicine detected.");

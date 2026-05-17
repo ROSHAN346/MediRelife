@@ -136,9 +136,20 @@ export default function InventoryPage() {
             Track stock levels and expiry status
           </p>
         </div>
+
+        <div className=" 15px jsutify-end" style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+
         <Link href="/scan" className="btn-secondary" style={{ alignSelf: "flex-start" }}>
           + Add Medicine
         </Link>
+        <Link href="/inventory/orders" className="btn-secondary" style={{ alignSelf: "flex-start" }}>
+          Orders
+        </Link>
+        <Link href="/inventory/shipments" className="btn-secondary" style={{ alignSelf: "flex-start" }}>
+          Shipment
+        </Link>
+        </div>
+
       </div>
 
       {/* ── Filter tabs ── */}

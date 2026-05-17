@@ -315,24 +315,45 @@ def login(user: LoginRequest, db: Session = Depends(get_db)):
 # ------------------------
 
 @app.get("/search")
-def search_medicine(query: str, db: Session = Depends(get_db)):
+def search_medicine(
+    query: str = "",
+    limit: int = 15,
+    offset: int = 0,
+    user_id: int = 0,
+    db: Session = Depends(get_db)
+):
 
-    medicines = db.query(models.Medicine).filter(
-        or_(
-            models.Medicine.brand_name.ilike(f"%{query}%"),
-            models.Medicine.generic_name.ilike(f"%{query}%")
+    medicines = (
+        db.query(models.Medicine)
+        .filter(
+            or_(
+                models.Medicine.brand_name.ilike(f"%{query}%"),
+                models.Medicine.generic_name.ilike(f"%{query}%")
+            )
         )
-    ).all()
+        .order_by(models.Medicine.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
 
     result = []
 
     for med in medicines:
+
         for inv in med.inventory:
 
+            # Skip current user's inventory
+            if inv.user_id == user_id :
+                continue
+
+            # Skip out of stock
             if inv.stock_qty <= 0:
                 continue
 
+            # Skip expired
             days_left = (inv.expiry_date - date.today()).days
+
             if days_left < 0:
                 continue
 
@@ -340,6 +361,8 @@ def search_medicine(query: str, db: Session = Depends(get_db)):
                 "medicine_id": med.id,
                 "brand_name": med.brand_name,
                 "generic_name": med.generic_name,
+                "dosage_form": med.dosage_form,
+                "manufacturer": med.manufacturer,
                 "stock": inv.stock_qty,
                 "expiry_date": inv.expiry_date,
                 "price": inv.price,
@@ -350,7 +373,7 @@ def search_medicine(query: str, db: Session = Depends(get_db)):
 
 
 # ------------------------
-# Inventory Update API
+# Inventory Fetcch API
 # ------------------------
 @app.get("/my-inventory/{user_id}")
 def get_my_inventory(user_id: int, db: Session = Depends(get_db)):
@@ -363,6 +386,8 @@ def get_my_inventory(user_id: int, db: Session = Depends(get_db)):
 
     for inv in inventory:
 
+        if(inv.user_status != 0): continue
+
         result.append({
             "inventory_id": inv.id,
             "medicine_id": inv.medicine.id,
@@ -372,5 +397,66 @@ def get_my_inventory(user_id: int, db: Session = Depends(get_db)):
             "price": inv.price,
             "expiry_date": inv.expiry_date
         })
+
+    return result
+
+
+# ------------------------
+# Shipments  API
+# ------------------------
+
+@app.post("/shipments/{user_id}")
+def get_shipments(user_id: int, db: Session = Depends(get_db)):
+
+    inventory = db.query(models.Inventory).filter(
+        models.Inventory.user_id == user_id,
+        models.Inventory.user_status == 1
+    ).all()
+
+    result = []
+
+    for inv in inventory:
+        result.append({
+            "inventory_id": inv.id,
+            "medicine_id": inv.medicine.id,
+            "brand_name": inv.medicine.brand_name,
+            "generic_name": inv.medicine.generic_name,
+            "stock_qty": inv.stock_qty,
+            "price": inv.price,
+            "expiry_date": inv.expiry_date,
+            "des_user": inv.des_user
+        })
+
+    print(result)
+
+    return result
+
+
+# ------------------------
+# Orders  API
+# ------------------------
+@app.post("/orders/{user_id}")
+def get_orders(user_id: int, db: Session = Depends(get_db)):
+
+    inventory = db.query(models.Inventory).filter(
+        models.Inventory.user_id == user_id,
+        models.Inventory.user_status == 2
+    ).all()
+
+    result = []
+
+    for inv in inventory:
+        result.append({
+            "inventory_id": inv.id,
+            "medicine_id": inv.medicine.id,
+            "brand_name": inv.medicine.brand_name,
+            "generic_name": inv.medicine.generic_name,
+            "stock_qty": inv.stock_qty,
+            "price": inv.price,
+            "expiry_date": inv.expiry_date,
+            "des_user": inv.des_user
+        })
+
+    print(result)
 
     return result

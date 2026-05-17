@@ -56,3 +56,5 @@ class Inventory(Base):
 
     owner = relationship("User", back_populates="inventory")
     medicine = relationship("Medicine", back_populates="inventory")
+    user_status = Column(Integer, default=0)
+    des_user = Column(String, default="")

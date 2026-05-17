@@ -2,14 +2,14 @@ import React from "react";
 import StatusBadge, { deriveStatus } from "./StatusBadge";
 
 interface MedicineCardProps {
-  brand_name:   string;
+  brand_name: string;
   generic_name: string;
   dosage_form?: string;
   manufacturer?: string;
-  stock:        number;
-  expiry_date:  string; // ISO date string
-  price:        number;
-  user_id?:     number;
+  stock: number;
+  expiry_date: string; // ISO date string
+  price: number;
+  user_id?: number;
 }
 
 export default function MedicineCard({
@@ -22,14 +22,14 @@ export default function MedicineCard({
   price,
 }: MedicineCardProps) {
   const expiry = new Date(expiry_date);
-  const today  = new Date();
+  const today = new Date();
   const daysLeft = Math.round((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  const status   = deriveStatus(daysLeft, stock);
+  const status = deriveStatus(daysLeft, stock);
 
   const expiryStr = expiry.toLocaleDateString("en-GB", {
-    day:   "2-digit",
+    day: "2-digit",
     month: "short",
-    year:  "numeric",
+    year: "numeric",
   });
 
   return (
@@ -42,9 +42,9 @@ export default function MedicineCard({
         <div>
           <div
             style={{
-              fontSize:   "var(--fs-body-md)",
+              fontSize: "var(--fs-body-md)",
               fontWeight: 700,
-              color:      "var(--clr-on-surface)",
+              color: "var(--clr-on-surface)",
               lineHeight: 1.3,
             }}
           >
@@ -53,7 +53,7 @@ export default function MedicineCard({
           <div
             style={{
               fontSize: "var(--fs-body-sm)",
-              color:    "var(--clr-on-surface-variant)",
+              color: "var(--clr-on-surface-variant)",
               marginTop: "2px",
             }}
           >
@@ -66,11 +66,11 @@ export default function MedicineCard({
       {/* Meta row */}
       <div
         style={{
-          display:        "grid",
+          display: "grid",
           gridTemplateColumns: "1fr 1fr",
-          gap:            "8px",
-          paddingTop:     "8px",
-          borderTop:      "1px solid var(--clr-outline-variant)",
+          gap: "8px",
+          paddingTop: "8px",
+          borderTop: "1px solid var(--clr-outline-variant)",
         }}
       >
         <MetaItem label="Stock" value={`${stock} units`} />
@@ -85,6 +85,22 @@ export default function MedicineCard({
           {manufacturer}
         </div>
       )}
+      <button
+        onClick={() => alert("Buy Now functionality coming soon!")}
+        style={{
+          marginTop: "12px",
+          padding: "12px",
+          borderRadius: "12px",
+          border: "none",
+          background: "#2563eb",
+          color: "white",
+          fontWeight: 600,
+          cursor: "pointer",
+          width: "100%",
+        }}
+      >
+        Buy Now
+      </button>
     </div>
   );
 }
